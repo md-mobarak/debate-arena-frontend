@@ -1,12 +1,34 @@
+
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { redirect, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useSession } from 'next-auth/react'
+
+interface DebateFormData {
+  title: string
+  description: string
+  tags: string
+  category: string
+  image: string
+  duration: string
+}
 
 export default function CreateDebatePage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({
+    const { data: session, status } = useSession()
+  
+    if (status === 'loading') {
+      return <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    }
+  
+    if (!session) {
+      redirect('/login')
+    }
+  const [formData, setFormData] = useState<DebateFormData>({
     title: '',
     description: '',
     tags: '',
@@ -28,29 +50,30 @@ export default function CreateDebatePage() {
     setError('')
     
     try {
-      // Prepare tags array from comma-separated string
-      const tagsArray = formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+      const tagsArray = formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
       
-      const res = await fetch('/api/debates', {
+      const res = await fetch('https://debate-arena-backend-five.vercel.app/api/v1/debates', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          tags: tagsArray
+          title: formData.title,
+          description: formData.description,
+          tags: tagsArray,
+          category: formData.category,
+          image: formData.image, // FIXED: Changed from imageUrl to image
+          duration: formData.duration,
         }),
-      })
-      
+      });
       const data = await res.json()
       
       if (res.ok) {
-        router.push(`/debates/${data.id}`)
+        router.push(`/debates/${data.debate._id}`) // Adjust according to your API response
       } else {
-        setError(data.error || 'Failed to create debate')
+        setError(data.message || 'Failed to create debate')
       }
-    } catch (err) {
-      setError('An unexpected error occurred')
+    } catch (error) {
+      console.error('Error creating debate:', error)
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -67,7 +90,11 @@ export default function CreateDebatePage() {
         <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white mb-8">
           Create a New Debate
         </h2>
-        {error && <div className="text-red-500 mb-4 text-center">{error}</div>}
+        {error && (
+          <div className="text-red-500 mb-4 text-center">
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>

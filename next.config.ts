@@ -1,18 +1,9 @@
-// import type { NextConfig } from "next";
-
-// const nextConfig: NextConfig = {
-//   /* config options here */
-// };
-
-// export default nextConfig;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    esmExternals: 'loose',
-      appDir: true,
-  },
+  // Remove experimental.appDir as it's now stable in Next.js 13+
+  // Remove experimental.esmExternals as it's not recommended
   transpilePackages: ['framer-motion']
 }
 
-module.exports = nextConfig
+export default nextConfig

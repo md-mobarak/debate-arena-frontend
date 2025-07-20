@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -5,54 +6,76 @@ import DebateCard from '@/components/DebateCard'
 import { motion } from 'framer-motion'
 import { FiChevronLeft, FiChevronRight, FiLoader } from 'react-icons/fi'
 
+interface Debate {
+  _id: string
+  title: string
+  description: string
+  category: string
+  supporters: string[]
+  opposers: string[]
+  endTime: string
+  createdAt: string
+  commentCount?: number
+  tags?: string[]
+  imageUrl?: string
+  status?: string
+}
+
+interface ApiResponse {
+  debates: Debate[]
+  totalPages: number
+  totalDebates: number
+  message?: string
+}
+
 export default function DebatesPage() {
-  const [debates, setDebates] = useState<any[]>([])
+  const [debates, setDebates] = useState<Debate[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalDebates, setTotalDebates] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [filter, setFilter] = useState('all') // 'all', 'open', 'closed'
-  const [sort, setSort] = useState('newest') // 'newest', 'popular'
+  const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('all')
+  const [sort, setSort] = useState<'newest' | 'popular'>('newest')
 
-  // Fetch debates when page changes or filters change
   useEffect(() => {
     const fetchDebates = async () => {
       setIsLoading(true)
+      setError('')
       try {
-        const queryParams = new URLSearchParams({
+          const queryParams = new URLSearchParams({
           page: currentPage.toString(),
           limit: '9',
           filter,
           sort
-        })
+        });
         
         if (searchQuery) {
-          queryParams.set('search', searchQuery)
+          queryParams.set('search', searchQuery);
         }
         
-        const res = await fetch(`http://localhost:5000/api/v1/debates?${queryParams}`)
-        const data = await res.json()
+        const res = await fetch(`https://debate-arena-backend-five.vercel.app/api/v1/debates?${queryParams.toString()}`);
+        const data: ApiResponse = await res.json()
         
         if (res.ok) {
           setDebates(data.debates)
           setTotalPages(data.totalPages)
           setTotalDebates(data.totalDebates)
         } else {
-          setError(data.error || 'Failed to fetch debates')
+          setError(data.message || 'Failed to fetch debates')
         }
-      } catch (err) {
-        setError('An unexpected error occurred')
+      } catch (error) {
+        console.error('Error fetching debates:', error)
+        setError('An unexpected error occurred while fetching debates')
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchDebates()
-  }, [currentPage, filter, sort, searchQuery])
+  }, [currentPage, filter, sort, searchQuery] )
 
-  // Handle page change
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page)
@@ -60,8 +83,7 @@ export default function DebatesPage() {
     }
   }
 
-  // Calculate time left for a debate
-  const calculateTimeLeft = (endTime: string) => {
+  const calculateTimeLeft = (endTime: string): string => {
     const end = new Date(endTime)
     const now = new Date()
     const diff = end.getTime() - now.getTime()
@@ -122,7 +144,7 @@ export default function DebatesPage() {
         <div>
           <select
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => setFilter(e.target.value as 'all' | 'open' | 'closed')}
             className="w-full py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           >
             <option value="all">All Debates</option>
@@ -134,7 +156,7 @@ export default function DebatesPage() {
         <div>
           <select
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
+            onChange={(e) => setSort(e.target.value as 'newest' | 'popular')}
             className="w-full py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           >
             <option value="newest">Newest First</option>
@@ -189,6 +211,7 @@ export default function DebatesPage() {
               setSearchQuery('')
               setFilter('all')
               setSort('newest')
+              setCurrentPage(1)
             }}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
@@ -199,20 +222,26 @@ export default function DebatesPage() {
 
       {!isLoading && debates.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          {debates.map((debate, index) => (
-            <DebateCard 
-              key={debate._id} 
-              debate={{
-                ...debate,
-                id: debate._id,
-                votes: debate.supporters.length + debate.opposers.length,
-                comments: debate.commentCount || 0,
-                participants: debate.supporters.length + debate.opposers.length,
-                timeLeft: calculateTimeLeft(debate.endTime)
-              }} 
-              delay={index * 0.1}
-            />
-          ))}
+     
+    
+ {debates.map((debate, index) => (
+      <DebateCard 
+        key={debate._id} 
+        debate={{
+          id: debate._id,
+          title: debate.title,
+          description: debate.description,
+          category: debate.category,
+          tags: debate.tags || [],
+          endTime: debate.endTime,
+          supporters: debate.supporters.length,
+          opposers: debate.opposers.length,
+          image: debate.imageUrl || '', // FIXED: Use imageUrl from Debate interface
+          status: debate.status ?? 'unknown' // FIXED: Use status from backend, fallback to 'unknown'
+        }} 
+        delay={index * 0.1}
+      />
+    ))}
         </div>
       )}
 
@@ -237,11 +266,9 @@ export default function DebatesPage() {
               Previous
             </button>
             
-            {/* Page numbers */}
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let pageNum = i + 1;
               
-              // Handle larger page ranges
               if (currentPage > 3) {
                 pageNum = currentPage - 2 + i;
                 if (pageNum > totalPages) return null;
@@ -296,18 +323,4 @@ export default function DebatesPage() {
       )}
     </div>
   )
-}
-
-// Helper function to calculate time left
-function calculateTimeLeft(endTime: string) {
-  const end = new Date(endTime)
-  const now = new Date()
-  const diff = end.getTime() - now.getTime()
-  
-  if (diff <= 0) return 'Ended'
-  
-  const hours = Math.floor(diff / (1000 * 60 * 60))
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-  
-  return `${hours}h ${minutes}m`
 }
